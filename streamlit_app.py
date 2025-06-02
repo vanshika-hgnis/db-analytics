@@ -6,14 +6,14 @@ from llm_generator import LLMGenerator
 
 @st.cache_resource
 def load_vector_store():
-    schema = extract_schema_text()
+    schema, relationships = extract_schema_text()
     store = VectorStore()
     store.build_store(schema)
-    return store
+    return store, schema, relationships
 
-st.title("🧠 Vanna-AI Clone V2.0 (Grounded Edition)")
+st.title("🧠 Data analytics app")
 
-vector_store = load_vector_store()
+vector_store, schema, relationships = load_vector_store()
 llm = LLMGenerator()
 db = SQLServerConnection()
 connected = db.connect()
@@ -26,8 +26,9 @@ user_question = st.text_area("Ask your question:")
 
 if st.button("Generate & Execute"):
     with st.spinner("Generating SQL..."):
+        # Search vector store for related schema
         context = "\n\n".join(vector_store.search(user_question))
-        generated_sql = llm.generate_sql(context, user_question)
+        generated_sql = llm.generate_sql(context, relationships, user_question)
 
     st.subheader("Generated SQL")
     st.code(generated_sql, language='sql')

@@ -2,37 +2,41 @@ import ollama
 from dotenv import load_dotenv
 import os
 
+
 load_dotenv()
 
-
-LLM = os.getenv("LLM")
-
-
 SYSTEM_PROMPT = """
-You are a SQL query generator for Microsoft SQL Server 2014.
+You are a SQL generator for Microsoft SQL Server 2014.
 You are provided:
-- A database schema (table names and columns)
+- A database schema (tables, columns, relationships)
 - A user question
 
-Rules:
-- Only output pure SQL queries.
-- Do not output explanations, comments, DDL or markdown.
-- Use only the columns listed in schema.
-- Do not hallucinate columns/tables.
-- If necessary, assume reasonable joins using IDs.
+RULES:
+- Only output valid SQL query.
+- No explanations, no DDL, no markdown.
+- Use only provided tables/columns/relationships.
+- Use correct joins based on relationships.
 
-Schema:
-{context}
+SCHEMA:
+{schema_context}
 
-Examples:
+RELATIONSHIPS:
+{relationship_context}
+
+EXAMPLES:
+
 Q: List all customers
 A: SELECT * FROM CustomerUser;
 
 Q: Show customer name and phone number
 A: SELECT CustomerName, PhoneNumber FROM CustomerUser;
 
-Q: List all usernames
-A: SELECT Username FROM User;
+Q: List all schedule jobs for customer 'Dynode'
+A: 
+SELECT sj.*
+FROM ScheduleJobs sj
+JOIN CustomerUser cu ON sj.CustomerId = cu.Id
+WHERE cu.CustomerName = 'Dynode';
 
 Now answer:
 {question}
@@ -42,10 +46,14 @@ SQL:
 
 class LLMGenerator:
     def __init__(self):
-        self.model = LLM  # Use larger model if available
+        self.model = os.getenv("LLM")
 
-    def generate_sql(self, context, question):
-        prompt = SYSTEM_PROMPT.format(context=context, question=question)
+    def generate_sql(self, schema_context, relationship_context, question):
+        prompt = SYSTEM_PROMPT.format(
+            schema_context=schema_context,
+            relationship_context="\n".join(relationship_context),
+            question=question
+        )
         response = ollama.chat(
             model=self.model,
             messages=[{"role": "user", "content": prompt}]
