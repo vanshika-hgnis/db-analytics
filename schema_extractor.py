@@ -1,10 +1,10 @@
 from sql_server import SQLServerConnection
 
-def extract_schema_text():
+def extract_schema_and_data():
     db = SQLServerConnection()
     db.connect()
 
-    # Extract columns
+    # Extract Columns
     column_query = """
     SELECT TABLE_NAME, COLUMN_NAME
     FROM INFORMATION_SCHEMA.COLUMNS
@@ -18,10 +18,9 @@ def extract_schema_text():
         schema_lines = "\n".join([f"- {col}" for col in columns])
         schema_texts.append(f"Table: {table}\nColumns:\n{schema_lines}")
 
-    # Extract foreign keys
+    # Extract Foreign Keys
     fk_query = """
     SELECT
-        fk.name AS FK_Name,
         tp.name AS ParentTable,
         cp.name AS ParentColumn,
         tr.name AS ReferencedTable,
@@ -39,6 +38,27 @@ def extract_schema_text():
     for _, row in df_fks.iterrows():
         fk_texts.append(f"{row['ParentTable']}.{row['ParentColumn']} → {row['ReferencedTable']}.{row['ReferencedColumn']}")
 
-    db.close()
+    # Build Join Path Hints
+    join_path_texts = []
+    for fk in fk_texts:
+        parent, referenced = fk.split(" → ")
+        p_table, p_col = parent.split(".")
+        r_table, r_col = referenced.split(".")
+        join_path_texts.append(f"To join {p_table} and {r_table}, use: {p_table}.{p_col} = {r_table}.{r_col}")
 
-    return schema_texts, fk_texts
+    # Extract Sample Data
+    value_texts = []
+    for table in df_columns['TABLE_NAME'].unique():
+        for col in df_columns[df_columns['TABLE_NAME'] == table]['COLUMN_NAME']:
+            if col.lower() in ['customername', 'username', 'name']:
+                try:
+                    query = f"SELECT TOP 5 [{col}] FROM [{table}] WHERE [{col}] IS NOT NULL"
+                    df_sample = db.execute_query(query)
+                    values = df_sample[col].tolist()
+                    if values:
+                        value_texts.append(f"{table}.{col} sample values: {', '.join(str(v) for v in values)}")
+                except Exception as e:
+                    continue
+
+    db.close()
+    return schema_texts, fk_texts, join_path_texts, value_texts
