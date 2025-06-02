@@ -1,5 +1,4 @@
-# db-analytics/vectore_store.py 
-
+# db_analytics/vector_store.py 
 import chromadb
 import os
 from embedder import OllamaEmbeddingFunction

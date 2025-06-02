@@ -1,6 +1,4 @@
-# db-analytics/embedder.py
-
-
+# embedder.py
 from chromadb import EmbeddingFunction, Documents, Embeddings
 import ollama
 

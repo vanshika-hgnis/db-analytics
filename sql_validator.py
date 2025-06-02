@@ -1,4 +1,4 @@
-# db-analytics/sql_validator.py 
+# sql_validator.py
 import sqlglot
 
 class SQLValidator:
