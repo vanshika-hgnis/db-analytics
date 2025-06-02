@@ -2,46 +2,20 @@ import ollama
 import os
 from dotenv import load_dotenv
 
+load_dotenv()
 
 SYSTEM_PROMPT = """
-You are a SQL generator for Microsoft SQL Server 2014.
-You are provided:
-- Schema (tables and columns)
-- Foreign key relationships
-- Join path hints (how to link tables)
-- Sample values (data examples)
-- User question
+You are an expert SQL generator for Microsoft SQL Server 2014.
 
-RULES:
-- Generate valid SQL queries.
-- Use joins based on join path hints.
-- Use sample values to match entities.
-- Do NOT reference columns across tables without proper joins.
-- Do NOT hallucinate any field not present in schema.
+You are given:
+- The database schema context
+- The user question
 
-SCHEMA:
-{schema_context}
+Your job is to generate full valid SQL queries for Microsoft SQL Server 2014.
 
-RELATIONSHIPS:
-{relationship_context}
+Only output the SQL query. Do not explain anything.
 
-JOIN PATH HINTS:
-{join_path_context}
-
-SAMPLE VALUES:
-{value_context}
-
-EXAMPLES:
-
-Q: List all customers
-A: SELECT * FROM CustomerUser;
-
-Q: List all schedule jobs for customer 'Dynode'
-A:
-SELECT sj.*
-FROM ScheduleJobs sj
-JOIN CustomerUser cu ON sj.CustomerId = cu.Id
-WHERE cu.CustomerName = 'Dynode';
+{context}
 
 USER QUESTION:
 {question}
@@ -49,18 +23,12 @@ USER QUESTION:
 SQL:
 """
 
-class LLMGenerator:
+class LLMSQLGenerator:
     def __init__(self):
-        self.model = os.getenv("LLM")
+        self.model = os.getenv("LLM")  # e.g., phi3:3.8b
 
-    def generate_sql(self, schema_context, relationship_context, join_path_context, value_context, question):
-        prompt = SYSTEM_PROMPT.format(
-            schema_context=schema_context,
-            relationship_context="\n".join(relationship_context),
-            join_path_context="\n".join(join_path_context),
-            value_context="\n".join(value_context),
-            question=question
-        )
+    def generate_sql(self, full_context, question):
+        prompt = SYSTEM_PROMPT.format(context=full_context, question=question)
         response = ollama.chat(
             model=self.model,
             messages=[{"role": "user", "content": prompt}]

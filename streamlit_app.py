@@ -1,22 +1,12 @@
 import streamlit as st
 from sql_server import SQLServerConnection
-from schema_extractor import extract_schema_and_data
+from schema_extractor import extract_full_schema,build_prompt_context
 from vector_store import VectorStore
-from llm_generator import LLMGenerator
-from sql_rewriter import SQLRewriter
+from llm_generator import LLMSQLGenerator
+from sql_validator import SQLValidator
 
-@st.cache_resource
-def load_vector_store():
-    schema, relationships, join_paths, values = extract_schema_and_data()
-    store = VectorStore()
-    store.build_store(schema)
-    return store, schema, relationships, join_paths, values
+st.title("🧠 Vanna Clone V9.0 — Full RAG Edition")
 
-st.title("🧠 Vanna-AI Clone V6.0 — Join Path Injection Edition")
-
-vector_store, schema, relationships, join_paths, values = load_vector_store()
-llm = LLMGenerator()
-rewriter = SQLRewriter()
 db = SQLServerConnection()
 connected = db.connect()
 
@@ -24,22 +14,36 @@ if not connected:
     st.error("❌ Failed to connect to SQL Server!")
     st.stop()
 
+# Extract schema once
+schema_lines = extract_full_schema()
+
+# Build Vector Store per DB
+db_name = db.connection.getinfo(6)  # Get database name
+vector_store = VectorStore(db_name)
+vector_store.build_store(schema_lines)
+
+# Initialize components
+llm = LLMSQLGenerator()
+validator = SQLValidator()
+
+# UI
 user_question = st.text_area("Ask your question:")
 
 if st.button("Generate & Execute"):
-    with st.spinner("Generating SQL..."):
-        context = "\n\n".join(vector_store.search(user_question))
-        generated_sql = llm.generate_sql(context, relationships, join_paths, values, user_question)
+    retrieved_schema = vector_store.search(user_question)
+    prompt_context = build_prompt_context(retrieved_schema)
 
-        st.subheader("Generated SQL (Before Rewriting)")
-        st.code(generated_sql, language='sql')
+    full_sql = llm.generate_sql(prompt_context, user_question)
+    st.subheader("Generated SQL")
+    st.code(full_sql, language='sql')
 
-        rewritten_sql = rewriter.rewrite_aliases(generated_sql)
-        st.subheader("SQL After Rewriting (Final Execution)")
-        st.code(rewritten_sql, language='sql')
+    valid = validator.validate(full_sql)
+    if not valid:
+        st.warning("⚠ SQL parse failed. Execution skipped.")
+        st.stop()
 
     try:
-        df = db.execute_query(rewritten_sql)
+        df = db.execute_query(full_sql)
         st.success("✅ Query executed successfully!")
         st.dataframe(df)
     except Exception as e:
