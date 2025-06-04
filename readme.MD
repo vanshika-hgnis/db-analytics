@@ -17,3 +17,4 @@ project_root/
 ├── requirements.txt
 
 
+![alt text](resources\image.png)

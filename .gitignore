@@ -5,3 +5,13 @@
 
 /chromedb
 
+/chroma_db
+
+.env
+/.env
+env
+
+.sqlite3
+/.sqlite3
+
+
