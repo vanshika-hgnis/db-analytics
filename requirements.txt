@@ -6,3 +6,7 @@ chromadb
 sentence-transformers
 ollama
 sqlglot
+vanna
+ploty
+IPython
+sqlalchemy
